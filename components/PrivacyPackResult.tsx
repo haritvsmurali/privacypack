@@ -1,19 +1,163 @@
 import { ArrowRight } from "lucide-react";
 import Image from "next/image";
 import React from "react";
+import { getAssetUrl } from "@/lib/assets";
+import { PRIVACY_PACK_FONT_FAMILY } from "@/lib/export-image";
+import { fitName } from "@/lib/fit-name";
+import type { AppOption as AppLogo, PackItem } from "@/lib/pack";
 
 interface PrivacyPackResultProps {
-    pack: Array<{
-        category: string;
-        order: number;
-        mainstream_app_name: string;
-        mainstream_app_id: string;
-        private_alternative_name: string;
-        private_alternative_id: string;
-    }>;
+    pack: PackItem[];
 }
 
+// The cards sit between 48px insets on the 1500px canvas.
+const CARD_AREA_WIDTH = 1500 - 2 * 48;
+const DENSE_COLUMN_GAP = 22;
+// Dense cards share four columns and have 12px padding and a 1px border.
+const DENSE_CARD_CONTENT_WIDTH =
+    (CARD_AREA_WIDTH - 3 * DENSE_COLUMN_GAP) / 4 - 2 * 12 - 2 * 1;
+// Space between a small alternative logo and its name (gap-1.5).
+const ALTERNATIVE_ROW_GAP = 6;
+
 const PrivacyPackResult: React.FC<PrivacyPackResultProps> = ({ pack }) => {
+    const smallColumnCount = Math.max(1, Math.min(pack.length, 3));
+    // Eight rows need shorter cards to stay within the 1500px canvas.
+    const compactDense = pack.length > 28;
+    const layout =
+        pack.length <= 12
+            ? {
+                  dense: false,
+                  gridTop: "200px",
+                  gridTemplateColumns: `repeat(${smallColumnCount}, 380px)`,
+                  columnGap: "110px",
+                  rowGap: "56px",
+                  cardClass: "h-[270px] w-[380px] pt-6",
+                  contentClass: "grid h-full items-center gap-x-2",
+                  columns: "150px 32px 180px",
+                  mainstreamWidth: 150,
+                  alternativesWidth: 180,
+                  logoSize: 140,
+                  fontSize: 22,
+                  alternativeLogoSize: 40,
+                  alternativeFontSize: 16,
+                  alternativeGapClass: "gap-2",
+                  arrowSize: 32,
+              }
+            : pack.length <= 20
+              ? {
+                    dense: false,
+                    gridTop: "180px",
+                    gridTemplateColumns: "repeat(4, 290px)",
+                    columnGap: "72px",
+                    rowGap: "52px",
+                    cardClass: "h-[190px] w-[290px] pt-6",
+                    contentClass: "grid h-full items-center gap-x-[5px]",
+                    columns: "120px 20px 140px",
+                    mainstreamWidth: 120,
+                    alternativesWidth: 140,
+                    logoSize: 90,
+                    fontSize: 18,
+                    alternativeLogoSize: 30,
+                    alternativeFontSize: 13,
+                    alternativeGapClass: "gap-1.5",
+                    arrowSize: 20,
+                }
+              : {
+                    dense: true,
+                    gridTop: "142px",
+                    gridTemplateColumns: "repeat(4, 1fr)",
+                    columnGap: `${DENSE_COLUMN_GAP}px`,
+                    rowGap: compactDense ? "14px" : "18px",
+                    cardClass: `${compactDense ? "h-[150px]" : "h-[166px]"} w-full rounded-lg border border-white/8 bg-[#181818] px-3 py-2.5`,
+                    contentClass: "grid min-h-0 flex-1 items-center gap-x-2",
+                    columns: "100px 22px minmax(0,1fr)",
+                    mainstreamWidth: 100,
+                    // The remainder after both fixed columns and two 8px gaps.
+                    alternativesWidth: DENSE_CARD_CONTENT_WIDTH - 100 - 22 - 16,
+                    logoSize: compactDense ? 52 : 66,
+                    fontSize: compactDense ? 14 : 15,
+                    alternativeLogoSize: 28,
+                    alternativeFontSize: 14,
+                    alternativeGapClass: "gap-1",
+                    arrowSize: 22,
+                };
+
+    const renderLogo = (app: AppLogo, size: number) => (
+        <div className="shrink-0" style={{ width: size, height: size }}>
+            <Image
+                src={getAssetUrl(`/app-logos/${app.id}.jpg`)}
+                alt={app.name}
+                width={size}
+                height={size}
+                sizes={`${size}px`}
+                className="h-full w-full rounded-xl object-cover"
+            />
+        </div>
+    );
+
+    const renderName = (
+        name: string,
+        width: number,
+        fontSize: number,
+        className: string,
+    ) => {
+        const fitted = fitName(name, width, fontSize);
+
+        return (
+            <div
+                className={`${className} leading-[1.12] break-words text-[#aeaeae]`}
+                style={{ fontSize: fitted.fontSize }}
+            >
+                {fitted.text}
+            </div>
+        );
+    };
+
+    const renderAlternatives = (alternatives: AppLogo[]) => {
+        if (alternatives.length === 1) {
+            const alternative = alternatives[0];
+
+            return (
+                <div
+                    data-pack-alternative={alternative.id}
+                    className="flex min-w-0 flex-col items-center"
+                >
+                    {renderLogo(alternative, layout.logoSize)}
+                    {renderName(
+                        alternative.name,
+                        layout.alternativesWidth,
+                        layout.fontSize,
+                        "mt-2 w-full text-center",
+                    )}
+                </div>
+            );
+        }
+
+        return (
+            <div
+                className={`flex min-w-0 flex-col ${layout.alternativeGapClass}`}
+            >
+                {alternatives.map((alternative) => (
+                    <div
+                        key={alternative.id}
+                        data-pack-alternative={alternative.id}
+                        className="flex min-w-0 items-center gap-1.5"
+                    >
+                        {renderLogo(alternative, layout.alternativeLogoSize)}
+                        {renderName(
+                            alternative.name,
+                            layout.alternativesWidth -
+                                layout.alternativeLogoSize -
+                                ALTERNATIVE_ROW_GAP,
+                            layout.alternativeFontSize,
+                            "min-w-0 flex-1",
+                        )}
+                    </div>
+                ))}
+            </div>
+        );
+    };
+
     return (
         <div
             style={{
@@ -24,7 +168,7 @@ const PrivacyPackResult: React.FC<PrivacyPackResultProps> = ({ pack }) => {
                 position: "relative",
                 boxSizing: "border-box",
                 overflow: "hidden",
-                fontFamily: "monospace",
+                fontFamily: PRIVACY_PACK_FONT_FAMILY,
             }}
             id="privacy-pack-result-to-capture"
         >
@@ -45,10 +189,10 @@ const PrivacyPackResult: React.FC<PrivacyPackResultProps> = ({ pack }) => {
                     }}
                 >
                     <Image
-                        src="/url-logo.png"
+                        src={getAssetUrl("/url-logo.png")}
                         alt="PrivacyPack Logo"
                         width={474}
-                        height={72}
+                        height={75}
                     />
                 </div>
 
@@ -62,13 +206,11 @@ const PrivacyPackResult: React.FC<PrivacyPackResultProps> = ({ pack }) => {
                     }}
                 >
                     <Image
-                        src="/small-logo.png"
+                        src={getAssetUrl("/small-logo.png")}
                         alt="Privacy Pack logo"
-                        width={0}
-                        height={0}
-                        sizes="100vw"
+                        width={140}
+                        height={103}
                         className="h-auto w-full"
-                        priority
                     />
                 </div>
             </div>
@@ -76,74 +218,55 @@ const PrivacyPackResult: React.FC<PrivacyPackResultProps> = ({ pack }) => {
             <div
                 style={{
                     position: "absolute",
-                    top: "200px",
+                    top: layout.gridTop,
                     left: "48px",
                     right: "48px",
                     display: "grid",
-                    gridTemplateColumns:
-                        pack.length <= 12 ? "repeat(3, 1fr)" : "repeat(4, 1fr)",
-                    columnGap: pack.length <= 12 ? "110px" : "72px",
-                    rowGap: pack.length <= 12 ? "56px" : "76px",
-                    justifyItems: "center",
+                    gridTemplateColumns: layout.gridTemplateColumns,
+                    justifyContent: layout.dense ? "normal" : "center",
+                    columnGap: layout.columnGap,
+                    rowGap: layout.rowGap,
+                    justifyItems: layout.dense ? "stretch" : "center",
                 }}
             >
-                {pack.map((item) => {
-                    return (
+                {pack.map((item) => (
+                    <div
+                        key={item.category}
+                        data-pack-category={item.category}
+                        className={`${layout.cardClass} flex flex-col`}
+                    >
+                        {layout.dense ? (
+                            <div className="mb-2 text-center text-[12px] leading-none font-semibold text-[#8a8a8a]">
+                                {item.category}
+                            </div>
+                        ) : null}
                         <div
-                            key={item.category}
-                            className={`${pack.length <= 12 ? "h-[270px] w-[380px]" : "h-[190px] w-[290px]"} group relative flex flex-row items-center justify-between rounded-md pt-6 transition`}
+                            className={layout.contentClass}
+                            style={{ gridTemplateColumns: layout.columns }}
                         >
-                            <div className="flex h-full flex-col items-center transition outline-none">
-                                <div
-                                    className={`${pack.length <= 12 ? "h-[150px] w-[150px]" : "h-[120px] w-[120px]"}`}
-                                >
-                                    <Image
-                                        src={`/app-logos/${item.mainstream_app_id}.jpg`}
-                                        alt={item.mainstream_app_name}
-                                        width={0}
-                                        height={0}
-                                        sizes="100vw"
-                                        className="h-full w-full rounded-2xl object-cover"
-                                    />
-                                </div>
-                                <div
-                                    className={`${pack.length <= 12 ? "max-w-[150px] text-[28px]" : "max-w-[120px] text-[25px]"} mt-3 text-center leading-tight tracking-tight text-[#aeaeae]`}
-                                >
-                                    {item.mainstream_app_name}
-                                </div>
+                            <div className="flex min-w-0 flex-col items-center">
+                                {renderLogo(
+                                    {
+                                        id: item.mainstream_app_id,
+                                        name: item.mainstream_app_name,
+                                    },
+                                    layout.logoSize,
+                                )}
+                                {renderName(
+                                    item.mainstream_app_name,
+                                    layout.mainstreamWidth,
+                                    layout.fontSize,
+                                    "mt-2 w-full text-center",
+                                )}
                             </div>
-                            <div
-                                className={
-                                    pack.length <= 12 ? "-mt-20" : "-mt-12"
-                                }
-                            >
-                                <ArrowRight
-                                    size={pack.length <= 12 ? 42 : 32}
-                                    className="text-[#e6e6e6]"
-                                />
-                            </div>
-                            <div className="flex h-full flex-col items-center transition outline-none">
-                                <div
-                                    className={`${pack.length <= 12 ? "h-[150px] w-[150px]" : "h-[120px] w-[120px]"}`}
-                                >
-                                    <Image
-                                        src={`/app-logos/${item.private_alternative_id}.jpg`}
-                                        alt={item.private_alternative_name}
-                                        width={0}
-                                        height={0}
-                                        sizes="100vw"
-                                        className="h-full w-full rounded-2xl object-cover"
-                                    />
-                                </div>
-                                <div
-                                    className={`${pack.length <= 12 ? "max-w-[150px] text-[28px]" : "max-w-[120px] text-[25px]"} mt-3 text-center leading-tight tracking-tight text-[#aeaeae]`}
-                                >
-                                    {item.private_alternative_name}
-                                </div>
-                            </div>
+                            <ArrowRight
+                                size={layout.arrowSize}
+                                className="text-[#e6e6e6]"
+                            />
+                            {renderAlternatives(item.private_alternatives)}
                         </div>
-                    );
-                })}
+                    </div>
+                ))}
             </div>
         </div>
     );
