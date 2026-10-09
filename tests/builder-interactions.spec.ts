@@ -621,7 +621,10 @@ test("a picker reopened while its menu is still closing stays open", async ({
     await picker.click();
     await expect(page.getByRole("menu")).toBeVisible();
     await page.keyboard.press("Escape");
-    // Reopen during the closing animation.
+    // Let the controlled close commit before the second pointer sequence.
+    // This is still inside the menu's closing animation, but avoids racing
+    // WebKit's Escape key handling against the trigger's pointer-down.
+    await page.waitForTimeout(50);
     await picker.click({ delay: 0 });
     await page.waitForTimeout(400);
     await expect(picker).toHaveAttribute("aria-expanded", "true");
